@@ -61,14 +61,14 @@
 Add Bengali translation in [] when helpful.`;
 
     function App() {
-      const [apiKey, setApiKey] = useState("");
-      const [keyOk, setKeyOk] = useState(false);
+      const [apiKey, setApiKey] = useState(localStorage.getItem("lt_rs_key") || "");
+      const [keyOk, setKeyOk] = useState(!!localStorage.getItem("lt_rs_key"));
       const [lang, setLang] = useState(null);
       const [msgs, setMsgs] = useState([]);
       const [input, setInput] = useState("");
       const [loading, setLoading] = useState(false);
       const [listening, setListening] = useState(false);
-      const [keyInput, setKeyInput] = useState("");
+      const [keyInput, setKeyInput] = useState(localStorage.getItem("lt_rs_key") || "");
       const [keyError, setKeyError] = useState("");
       const bottomRef = useRef(null);
 
@@ -106,8 +106,7 @@ Add Bengali translation in [] when helpful.`;
         setKeyError("checking...");
         try {
           await callAI([{role:"user",content:"hi"}], "en", k);
-          setApiKey(k);
-          setKeyOk(true);
+          setApiKey(k); localStorage.setItem("lt_rs_key", k); setKeyOk(true);
           setKeyError("");
         } catch(e) {
           setKeyError("❌ Key কাজ করছে না: " + e.message);
