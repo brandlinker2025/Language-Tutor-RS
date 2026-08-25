@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Language Tutor RS</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f13; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); opacity: 0.4; }
+      50% { transform: translateY(-6px); opacity: 1; }
+    }
+    textarea::placeholder { color: #555; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const LANGUAGES = [
+      { code: "en", label: "English 🇬🇧" },
+      { code: "bn", label: "Bengali 🇧🇩" },
+      { code: "it", label: "Italian 🇮🇹" },
+      { code: "es", label: "Spanish 🇪🇸" },
+      { code: "de", label: "German 🇩🇪" },
+      { code: "zh", label: "Chinese 🇨🇳" },
+      { code: "ja", label: "Japanese 🇯🇵" },
+      { code: "pt", label: "Portuguese 🇵🇹" },
+      { code: "tr", label: "Turkish 🇹🇷" },
+      { code: "ar", label: "Arabic 🇸🇦" },
+      { code: "hi", label: "Hindi 🇮🇳" },
+      { code: "ne", label: "Nepali 🇳🇵" },
+    ];
+
+    const LANGUAGE_NAMES = {
+      en:"English", bn:"Bengali", it:"Italian", es:"Spanish",
+      de:"German", zh:"Chinese", ja:"Japanese", pt:"Portuguese",
+      tr:"Turkish", ar:"Arabic", hi:"Hindi", ne:"Nepali",
+    };
+
+    const API_KEY = "YOUR_API_KEY_HERE";
+
+    const SYSTEM_PROMPT = (lang) =>
+      `You are a friendly, encouraging ${LANGUAGE_NAMES[lang]} language tutor.
+Your job:
+1. Have a natural, casual conversation with the student in ${LANGUAGE_NAMES[lang]}.
+2. If the student makes a grammar or vocabulary mistake, gently correct it — keep it simple. Just say the correct version naturally, like a friend would.
+3. Ask simple, interesting questions to keep the conversation going.
+4. Never correct more than 1-2 mistakes at a time.
+5. Keep your replies SHORT and conversational (2-4 sentences max).
+6. Be warm, fun, and encouraging. Never make the student feel bad about mistakes.
+7. If the student writes in Bengali, translate it to ${LANGUAGE_NAMES[lang]} and teach them how to say it.
+8. Always end your reply with a follow-up question.
+Speak in ${LANGUAGE_NAMES[lang]}. If needed, add a small Bengali translation in brackets [] to help them understand.`;
+
+    function App() {
+      const [selectedLang, setSelectedLang] = useState(null);
+      const [messages, setMessages] = useState([]);
+      const [input, setInput] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [started, setStarted] = useState(false);
+      const [listening, setListening] = useState(false);
+      const [apiKey, setApiKey] = useState(API_KEY);
+      const [showKeyInput, setShowKeyInput] = useState(API_KEY === "YOUR_API_KEY_HERE");
+      const bottomRef = useRef(null);
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [messages]);
+
+      const callClaude = async (history) => {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-allow-browser": "true"
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1000,
+            system: SYSTEM_PROMPT(selectedLang),
+            messages: history,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) return "Error: " + data.error.message;
+        return data.content?.[0]?.text || "Sorry, I couldn't respond.";
+      };
+
+      const startSession = async (lang) => {
+        setSelectedLang(lang);
+        setStarted(true);
+        setLoading(true);
+        setMessages([]);
+        const aiReply = await callClaude([{ role: "user", content: "Start the session. Greet me warmly and ask your first simple question." }]);
+        setMessages([{ role: "assistant", content: aiReply }]);
+        setLoading(false);
+      };
+
+      const sendMessage = async () => {
+        if (!input.trim() || loading) return;
+        const userMsg = { role: "user", content: input.trim() };
+        const newHistory = [...messages, userMsg];
+        setMessages(newHistory);
+        setInput("");
+        setLoading(true);
+        const aiReply = await callClaude(newHistory);
+        setMessages([...newHistory, { role: "assistant", content: aiReply }]);
+        setLoading(false);
+      };
+
+      const handleKey = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+      };
+
+      const startListening = () => {
+        if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
+          alert("Voice not supported. Please use Chrome browser.");
+          return;
+        }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const r = new SR();
+        r.lang = selectedLang || "en";
+        r.interimResults = false;
+        r.onresult = (e) => setInput((prev) => prev + " " + e.results[0][0].transcript);
+        r.onend = () => setListening(false);
+        r.onerror = () => setListening(false);
+        r.start();
+        setListening(true);
+      };
+
+      const resetApp = () => {
+        setSelectedLang(null); setMessages([]);
+        setInput(""); setStarted(false); setLoading(false);
+      };
+
+      // API Key screen
+      if (showKeyInput) {
+        return (
+          <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f0c29,#302b63,#24243e)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+            <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:"20px", padding:"40px", maxWidth:"420px", width:"100%", textAlign:"center" }}>
+              <div style={{ fontSize:"48px", marginBottom:"16px" }}>🔑</div>
+              <h2 style={{ color:"#fff", fontSize:"22px", marginBottom:"8px" }}>API Key দাও</h2>
+              <p style={{ color:"#aaa", fontSize:"14px", marginBottom:"24px" }}>console.anthropic.com থেকে free API key নাও</p>
+              <input
+                type="password"
+                placeholder="sk-ant-..."
+                value={apiKey === "YOUR_API_KEY_HERE" ? "" : apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                style={{ width:"100%", padding:"12px 16px", borderRadius:"12px", border:"1px solid rgba(255,255,255,0.2)", background:"rgba(255,255,255,0.05)", color:"#fff", fontSize:"14px", outline:"none", marginBottom:"16px" }}
+              />
+              <button
+                onClick={() => { if(apiKey.startsWith("sk-")) setShowKeyInput(false); else alert("Valid API key দাও (sk-ant- দিয়ে শুরু)"); }}
+                style={{ width:"100%", padding:"14px", borderRadius:"12px", border:"none", background:"linear-gradient(135deg,#6c63ff,#48cfad)", color:"#fff", fontSize:"16px", fontWeight:"600", cursor:"pointer" }}
+              >
+                শুরু করো →
+              </button>
+              <p style={{ color:"#555", fontSize:"12px", marginTop:"16px" }}>Key শুধু তোমার browser এ থাকবে — কোথাও save হবে না</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Language select screen
+      if (!started) {
+        return (
+          <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f0c29,#302b63,#24243e)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+            <div style={{ textAlign:"center", marginBottom:"40px" }}>
+              <div style={{ fontSize:"52px", marginBottom:"12px" }}>🌍</div>
+              <h1 style={{ color:"#fff", fontSize:"28px", fontWeight:"700", margin:"0 0 8px" }}>Language Tutor RS</h1>
+              <p style={{ color:"#aaa", fontSize:"15px", margin:0 }}>কথা বলো, ভুল হলে শিখো — সম্পূর্ণ ফ্রি 🎓</p>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:"12px", maxWidth:"520px", width:"100%" }}>
+              {LANGUAGES.map((l) => (
+                <button key={l.code} onClick={() => startSession(l.code)} style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.15)", color:"#fff", borderRadius:"14px", padding:"14px 10px", fontSize:"14px", cursor:"pointer", fontWeight:"500" }}>
+                  {l.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ color:"#555", fontSize:"12px", marginTop:"32px" }}>একটা ভাষা select করো → tutor এর সাথে কথা শুরু করো</p>
+          </div>
+        );
+      }
+
+      // Chat screen
+      return (
+        <div style={{ minHeight:"100vh", background:"#0f0f13", display:"flex", flexDirection:"column" }}>
+          <div style={{ padding:"14px 20px", background:"rgba(255,255,255,0.04)", borderBottom:"1px solid rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <span style={{ color:"#fff", fontWeight:"600", fontSize:"16px" }}>🎓 {LANGUAGE_NAMES[selectedLang]} Tutor RS</span>
+              <span style={{ color:"#666", fontSize:"12px", marginLeft:"10px" }}>AI-powered • Free</span>
+            </div>
+            <button onClick={resetApp} style={{ background:"rgba(255,80,80,0.15)", border:"1px solid rgba(255,80,80,0.3)", color:"#ff6b6b", borderRadius:"8px", padding:"6px 14px", fontSize:"13px", cursor:"pointer" }}>← ভাষা বদলাও</button>
+          </div>
+
+          <div style={{ flex:1, overflowY:"auto", padding:"20px", display:"flex", flexDirection:"column", gap:"14px" }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ display:"flex", justifyContent: m.role==="user" ? "flex-end" : "flex-start" }}>
+                {m.role === "assistant" && (
+                  <div style={{ width:"34px", height:"34px", borderRadius:"50%", background:"linear-gradient(135deg,#6c63ff,#48cfad)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px", marginRight:"10px", flexShrink:0 }}>🤖</div>
+                )}
+                <div style={{ maxWidth:"72%", padding:"12px 16px", borderRadius: m.role==="user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: m.role==="user" ? "linear-gradient(135deg,#6c63ff,#574fd6)" : "rgba(255,255,255,0.07)", color:"#fff", fontSize:"14px", lineHeight:"1.6", border: m.role==="assistant" ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
+                  {m.content}
+                </div>
+                {m.role === "user" && (
+                  <div style={{ width:"34px", height:"34px", borderRadius:"50%", background:"linear-gradient(135deg,#f7971e,#ffd200)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px", marginLeft:"10px", flexShrink:0 }}>😊</div>
+                )}
+              </div>
+            ))}
+            {loading && (
+              <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                <div style={{ width:"34px", height:"34px", borderRadius:"50%", background:"linear-gradient(135deg,#6c63ff,#48cfad)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px" }}>🤖</div>
+                <div style={{ background:"rgba(255,255,255,0.07)", borderRadius:"18px 18px 18px 4px", padding:"14px 18px", border:"1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ display:"flex", gap:"5px" }}>
+                    {[0,1,2].map(i => (
+                      <div key={i} style={{ width:"7px", height:"7px", borderRadius:"50%", background:"#6c63ff", animation:"bounce 1.2s ease-in-out infinite", animationDelay:`${i*0.2}s` }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          <div style={{ padding:"14px 16px", background:"rgba(255,255,255,0.03)", borderTop:"1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ display:"flex", gap:"10px", alignItems:"flex-end", maxWidth:"760px", margin:"0 auto" }}>
+              <button onClick={startListening} disabled={listening} style={{ width:"44px", height:"44px", borderRadius:"50%", border:"none", cursor:"pointer", background: listening ? "linear-gradient(135deg,#ff4757,#ff6b81)" : "rgba(255,255,255,0.1)", color:"#fff", fontSize:"18px", flexShrink:0 }}>
+                {listening ? "🔴" : "🎙️"}
+              </button>
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder={`Type in ${LANGUAGE_NAMES[selectedLang]} or Bengali... (Enter to send)`}
+                rows={1}
+                style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", color:"#fff", borderRadius:"14px", padding:"12px 16px", fontSize:"14px", resize:"none", outline:"none", fontFamily:"inherit", lineHeight:"1.5", maxHeight:"120px", overflowY:"auto" }}
+              />
+              <button onClick={sendMessage} disabled={loading || !input.trim()} style={{ width:"44px", height:"44px", borderRadius:"50%", border:"none", cursor:"pointer", background: loading || !input.trim() ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg,#6c63ff,#48cfad)", color:"#fff", fontSize:"18px", flexShrink:0 }}>
+                ➤
+              </button>
+            </div>
+            <p style={{ textAlign:"center", color:"#444", fontSize:"11px", marginTop:"8px" }}>AI tutor will gently correct your mistakes 🌟 No data saved • Fully free</p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
+
