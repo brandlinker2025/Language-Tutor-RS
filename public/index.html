@@ -114,20 +114,36 @@ Add a brief Bengali hint in [] only when really needed.`;
       const speak = useCallback((text, voiceLang) => {
         if (!voiceEnabled || !synthRef.current) return;
         synthRef.current.cancel();
-        // Clean text — remove [] hints before speaking
         const cleanText = text.replace(/\[.*?\]/g, "").trim();
         const utter = new SpeechSynthesisUtterance(cleanText);
         utter.lang = voiceLang;
-        utter.rate = 0.9;
-        utter.pitch = 1;
-        // Try to find a matching voice
-        const voices = synthRef.current.getVoices();
-        const match = voices.find(v => v.lang.startsWith(voiceLang.split("-")[0]));
-        if (match) utter.voice = match;
-        utter.onstart = () => setSpeaking(true);
-        utter.onend = () => setSpeaking(false);
-        utter.onerror = () => setSpeaking(false);
-        synthRef.current.speak(utter);
+        const langCode = voiceLang.split("-")[0];
+
+        const trySpeak = () => {
+          const voices = synthRef.current.getVoices();
+          const langVoices = voices.filter(v => v.lang.startsWith(langCode));
+          const preferred = ["Google","Microsoft","Apple","Samantha","Karen","Moira","Zira","Hazel"];
+          let picked = null;
+          for (const brand of preferred) {
+            picked = langVoices.find(v => v.name.includes(brand));
+            if (picked) break;
+          }
+          if (!picked && langVoices.length > 0) picked = langVoices[0];
+          if (picked) utter.voice = picked;
+          utter.rate = 0.88;
+          utter.pitch = 1.05;
+          utter.volume = 1;
+          utter.onstart = () => setSpeaking(true);
+          utter.onend = () => setSpeaking(false);
+          utter.onerror = () => setSpeaking(false);
+          synthRef.current.speak(utter);
+        };
+
+        if (synthRef.current.getVoices().length === 0) {
+          synthRef.current.onvoiceschanged = trySpeak;
+        } else {
+          trySpeak();
+        }
       }, [voiceEnabled]);
 
       const stopSpeaking = () => {
