@@ -46,7 +46,7 @@ const LANGS=[
 ];
 const NAMES={en:"English",bn:"Bengali",it:"Italian",es:"Spanish",de:"German",zh:"Chinese",ja:"Japanese",pt:"Portuguese",tr:"Turkish",ar:"Arabic",hi:"Hindi",ne:"Nepali"};
 
-let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[],accumTranscript:"",silenceTimer:null,wasListeningBeforeSpeak:false};
+let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[],accumTranscript:"",silenceTimer:null,wasListeningBeforeSpeak:false,userStoppedListening:false,recAutoRestartCount:0,recAutoRestartWindowStart:0};
 let rec=null;
 const syn=window.speechSynthesis;
 
@@ -91,9 +91,10 @@ function speak(text){
     const voices=syn.getVoices();
     const lc=S.lang.voice.split("-")[0];
     const lv=voices.filter(v=>v.lang && v.lang.toLowerCase().startsWith(lc));
-    const brands=["Google","Microsoft","Apple","Samantha","Karen","Zira"];
+    // Improved priority list
+    const priorities=["Natural","Neural","Premium","Enhanced","Google","Microsoft","Apple","Samantha","Karen","Zira"];
     let pick=null;
-    for(const b of brands){pick=lv.find(v=>v.name && v.name.includes(b));if(pick)break;}
+    for(const p of priorities){ pick = lv.find(v=>v.name && v.name.includes(p)); if(pick) break; }
     if(!pick && lv.length>0) pick=lv[0];
     if(pick) u.voice=pick;
     // More natural voice settings per request
@@ -118,6 +119,10 @@ function startListen(){
   stopSpeak();
   // initialize accumulators
   S.accumTranscript = S.accumTranscript || "";
+  S.userStoppedListening = false;
+  // reset auto-restart window if needed
+  const now=Date.now();
+  if(!S.recAutoRestartWindowStart || now - S.recAutoRestartWindowStart > 30000){ S.recAutoRestartWindowStart = now; S.recAutoRestartCount = 0; }
   if(rec) try{rec.stop();}catch(e){}
   rec=new SR();
   rec.lang=S.lang.sr;
@@ -127,16 +132,23 @@ function startListen(){
   rec.onstart=()=>{S.listening=true;render()};
 
   rec.onresult=(e)=>{
+    // Only process new results since last event
+    const startIndex = e.resultIndex || 0;
     // Any speech event resets the silence timer
     if(S.silenceTimer){clearTimeout(S.silenceTimer);S.silenceTimer=null;}
 
-    // Process results: accumulate final results, show interim
-    const results = Array.from(e.results);
-    // Append final transcripts to accumTranscript
-    results.forEach(r=>{ if(r.isFinal){ S.accumTranscript += r[0].transcript + ' '; } });
-    // Build interim-only text (non-final results)
-    const interimOnly = results.filter(r=>!r.isFinal).map(r=>r[0].transcript).join(' ');
-    S.transcript = (S.accumTranscript + interimOnly).trim();
+    const results = e.results;
+    const interimParts = [];
+    for(let i=startIndex;i<results.length;i++){
+      const r = results[i];
+      if(r.isFinal){
+        // Append only once: use accumTranscript to store finalized text
+        S.accumTranscript += r[0].transcript + ' ';
+      } else {
+        interimParts.push(r[0].transcript);
+      }
+    }
+    S.transcript = (S.accumTranscript + interimParts.join(' ')).trim();
     render();
 
     // Start/reset silence timer: when no new onresult fires for SILENCE_TIMEOUT, send full transcript
@@ -155,12 +167,27 @@ function startListen(){
     }, SILENCE_TIMEOUT);
   };
 
-  rec.onend=()=>{S.listening=false;render();};
+  rec.onend=()=>{
+    // Auto-restart logic: if the user didn't manually stop, AI isn't speaking, we are still expecting silence timer to expire (listening turn active), and not currently sending/loading
+    const now = Date.now();
+    const withinWindow = now - S.recAutoRestartWindowStart <= 30000;
+    if(!S.userStoppedListening && !S.speaking && !S.loading && S.silenceTimer && withinWindow && S.recAutoRestartCount < 3){
+      // attempt a short-delayed restart
+      S.recAutoRestartCount += 1;
+      setTimeout(()=>{
+        try{ if(!rec) startListen(); }catch(e){}
+      }, 300);
+    } else {
+      S.listening=false; render();
+    }
+  };
   rec.onerror=(err)=>{console.warn('Speech recognition error',err);S.listening=false;render();};
   try{rec.start();}catch(e){console.warn('rec.start error',e);}  
 }
 
 function stopListen(){
+  // Mark as user-stopped to prevent auto-restart
+  S.userStoppedListening = true;
   if(rec){try{rec.onresult=null;rec.onend=null;rec.onerror=null;rec.stop();}catch(e){}
     rec=null;
   }
