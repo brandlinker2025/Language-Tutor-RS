@@ -6,17 +6,58 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const apiKey = process.env.OPENROUTER_KEY;
-  if (!apiKey) return res.status(500).json({ error: { message: 'OPENROUTER_KEY missing in Vercel' } });
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: 'OPENROUTER_KEY missing in Vercel environment variables' }
+    });
+  }
 
-  const { system_instruction, contents, generationConfig } = req.body;
-  
+  // Robust validation of request body
+  let system_instruction, contents, generationConfig;
+  try {
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      return res.status(400).json({
+        error: { message: 'Request body must be a valid JSON object' }
+      });
+    }
+    system_instruction = body.system_instruction;
+    contents = body.contents;
+    generationConfig = body.generationConfig;
+
+    // Validate required fields
+    if (!contents || !Array.isArray(contents)) {
+      return res.status(400).json({
+        error: { message: 'Request must include "contents" array' }
+      });
+    }
+  } catch (e) {
+    return res.status(400).json({
+      error: { message: 'Malformed request body: ' + e.message }
+    });
+  }
+
   // Convert Gemini format to OpenRouter format
   const messages = [];
-  if (system_instruction) {
-    messages.push({ role: 'system', content: system_instruction.parts[0].text });
-  }
-  for (const c of contents) {
-    messages.push({ role: c.role === 'model' ? 'assistant' : 'user', content: c.parts[0].text });
+  try {
+    if (system_instruction && system_instruction.parts && system_instruction.parts.length > 0) {
+      messages.push({ role: 'system', content: system_instruction.parts[0].text });
+    }
+    for (const c of contents) {
+      if (!c.role || !c.parts || c.parts.length === 0) {
+        return res.status(400).json({
+          error: { message: 'Each content item must have role and parts array' }
+        });
+      }
+      messages.push({
+        role: c.role === 'model' ? 'assistant' : 'user',
+        content: c.parts[0].text
+      });
+    }
+  } catch (e) {
+    return res.status(400).json({
+      error: { message: 'Error converting request format: ' + e.message }
+    });
   }
 
   try {
@@ -29,20 +70,43 @@ export default async function handler(req, res) {
         'X-Title': 'Language Tutor RS'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+        model: 'openrouter/free',
         messages: messages,
         max_tokens: generationConfig?.maxOutputTokens || 300,
         temperature: generationConfig?.temperature || 0.9
       })
     });
-    
+
     const data = await response.json();
-    if (data.error) return res.status(400).json({ error: { message: data.error.message } });
-    
+
+    // Return OpenRouter error with actual status code
+    if (data.error) {
+      return res.status(response.status || 400).json({
+        error: { message: data.error.message || 'OpenRouter API error' }
+      });
+    }
+
+    // Safely handle missing content
+    if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      return res.status(500).json({
+        error: { message: 'OpenRouter returned empty response' }
+      });
+    }
+
+    const messageContent = data.choices[0].message?.content;
+    if (!messageContent) {
+      return res.status(500).json({
+        error: { message: 'OpenRouter response missing content' }
+      });
+    }
+
     // Convert back to Gemini response format
-    const text = data.choices[0].message.content;
-    res.status(200).json({ candidates: [{ content: { parts: [{ text }] } }] });
-  } catch(e) {
-    res.status(500).json({ error: { message: e.message } });
+    res.status(200).json({
+      candidates: [{ content: { parts: [{ text: messageContent }] } }]
+    });
+  } catch (e) {
+    res.status(500).json({
+      error: { message: 'Server error: ' + e.message }
+    });
   }
 }
