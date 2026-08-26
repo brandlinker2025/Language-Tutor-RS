@@ -18,7 +18,7 @@ textarea::placeholder{color:#555}
 .bar:nth-child(4){animation-delay:.3s}.bar:nth-child(5){animation-delay:.4s}
 .mic-active{position:relative}
 .mic-active::before{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid #ff4757;animation:pulse 1s ease-out infinite}
-.lang-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:14px;padding:14px 8px;font-size:13px;cursor:pointer;font-weight:500;font-family:inherit;transition:background .2s}
+.lang-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:14px;padding:14px 8px;font-size:13px;cursor:pointer;font-weight:500;font-family:inherit}
 .lang-btn:hover{background:rgba(255,255,255,0.18)}
 .msg-box{max-width:72%;padding:12px 16px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
 .msg-ai{border-radius:18px 18px 18px 4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)}
@@ -131,7 +131,7 @@ async function send(text){
     S.msgs.push({role:"assistant",content:reply});
     S.loading=false;render();speak(reply);
   }catch(e){
-    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message+"\n\nVercel এ GEMINI_API_KEY আছে কিনা check করো।"});
+    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message+"\n\nVercel এ OPENROUTER_KEY আছে কিনা check করো।"});
     S.loading=false;render();
   }
 }
@@ -175,7 +175,7 @@ function render(){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;max-width:500px;width:100%">
         ${LANGS.map(l=>`<button class="lang-btn" onclick='startChat(${JSON.stringify(l)})'>${l.label}</button>`).join("")}
       </div>
-      <p style="color:#444;font-size:11px;margin-top:24px">Powered by Google Gemini • সম্পূর্ণ ফ্রি 🎉</p>
+      <p style="color:#444;font-size:11px;margin-top:24px">Powered by OpenRouter • সম্পূর্ণ ফ্রি 🎉</p>
     </div>`;
     return;
   }
@@ -184,12 +184,12 @@ function render(){
 
   const msgsHTML=S.msgs.map((m,i)=>`
     <div style="display:flex;justify-content:${m.role==="user"?"flex-end":"flex-start"};align-items:flex-end;gap:8px;margin-bottom:14px">
-      ${m.role==="assistant"?`<button onclick="speak(S.msgs[${i}].content)" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);border:none;font-size:15px;cursor:pointer;flex-shrink:0">🤖</button>`:""}
+      ${m.role==="assistant"?`<button onclick="speak(S.msgs[${i}].content)" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);border:none;font-size:16px;cursor:pointer;flex-shrink:0">🔊</button>`:""}
       <div class="msg-box ${m.role==="ai"?"msg-ai":"msg-"+m.role==="user"?"msg-user":"msg-ai"}
            ${m.role==="assistant"?"msg-ai":"msg-user"}">
         ${formatMsg(m.content,m.role)}
       </div>
-      ${m.role==="user"?`<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">😊</div>`:""}
+      ${m.role==="user"?`<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>`:""}
     </div>`).join("");
 
   const dots=`<div style="display:flex;gap:5px">${[0,1,2].map(i=>`<div style="width:8px;height:8px;border-radius:50%;background:#6c63ff;animation:bounce 1.2s ease-in-out infinite;animation-delay:${i*.2}s"></div>`).join("")}</div>`;
@@ -202,25 +202,25 @@ function render(){
         ${wave}
       </div>
       <div style="display:flex;gap:8px">
-        <button onclick="S.voiceOn=!S.voiceOn;if(!S.voiceOn)stopSpeak();render()" style="background:${S.voiceOn?"rgba(72,207,173,0.15)":"rgba(255,255,255,0.07)"};border:1px solid ${S.voiceOn?"rgba(72,207,173,0.4)":"rgba(255,255,255,0.15)"};color:${S.voiceOn?"#48cfad":"#888"};border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">${S.voiceOn?"🔊 ON":"🔇 OFF"}</button>
-        <button onclick="stopSpeak();stopListen();S.screen='lang';S.msgs=[];S.history=[];render()" style="background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);color:#ff6b6b;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">← বদলাও</button>
+        <button onclick="S.voiceOn=!S.voiceOn;if(!S.voiceOn)stopSpeak();render()" style="background:${S.voiceOn?"rgba(72,207,173,0.15)":"rgba(255,255,255,0.07)"};border:1px solid ${S.voiceOn?"rgba(72,207,173,0.3)":"rgba(255,255,255,0.2)"};color:#48cfad;border-radius:50%;width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">🔊</button>
+        <button onclick="stopSpeak();stopListen();S.screen='lang';S.msgs=[];S.history=[];render()" style="background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);color:#ff6b6b;border-radius:50%;width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
     </div>
 
     <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column">
       ${msgsHTML}
-      ${S.loading?`<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);display:flex;align-items:center;justify-content:center">🤖</div><div style="background:rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;padding:14px 18px;border:1px solid rgba(255,255,255,0.1)">${dots}</div></div>`:""}
-      ${S.listening&&S.transcript?`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:72%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:rgba(108,99,255,0.25);color:#ccc;font-size:13px;font-style:italic;border:1px dashed rgba(108,99,255,0.5)">🎙️ ${S.transcript}</div></div>`:""}
+      ${S.loading?`<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);display:flex;align-items:center;justify-content:center;flex-shrink:0">${dots}</div></div>`:""}
+      ${S.listening&&S.transcript?`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:72%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:rgba(108,99,255,0.2);border:1px solid rgba(108,99,255,0.4);color:#b0a9ff;font-size:14px">${S.transcript}</div></div>`:""}
       <div id="btm"></div>
     </div>
 
-    ${S.listening?`<div style="text-align:center;padding:8px;background:rgba(255,71,87,0.1);border-top:1px solid rgba(255,71,87,0.2);color:#ff4757;font-size:13px;display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#ff4757;animation:bounce .8s infinite"></div>শুনছি... বলো<button onclick="stopListen()" style="background:rgba(255,71,87,0.2);border:1px solid rgba(255,71,87,0.4);color:#ff4757;border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;font-family:inherit">বন্ধ</button></div>`:""}
+    ${S.listening?`<div style="text-align:center;padding:8px;background:rgba(255,71,87,0.1);border-top:1px solid rgba(255,71,87,0.2);color:#ff4757;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px">🎙️ শুনছি...</div>`:""}
 
     <div style="padding:12px 14px;background:rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0">
       <div style="display:flex;gap:8px;align-items:flex-end;max-width:700px;margin:0 auto">
-        <button onclick="${S.listening?"stopListen()":"startListen()"}" class="mic-btn ${S.listening?"mic-active":""}" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:${S.listening?"#ff4757":"rgba(255,255,255,0.1)"};color:#fff;font-size:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:inherit">${S.listening?"⏹":"🎙️"}</button>
-        <textarea id="txt" rows="1" placeholder="${NAMES[S.lang.code]} বা বাংলায় লেখো... অথবা 🎙️ চেপে বলো" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.5;max-height:100px"></textarea>
-        <button onclick="send()" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#6c63ff,#48cfad);color:#fff;font-size:18px;flex-shrink:0;font-family:inherit">➤</button>
+        <button onclick="${S.listening?"stopListen()":"startListen()"}" class="mic-btn ${S.listening?"mic-active":""}" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#ff6b9d,#c44569);color:#fff;font-size:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center">🎙️</button>
+        <textarea id="txt" rows="1" placeholder="${NAMES[S.lang.code]} বা বাংলায় লেখো... অথবা 🎙️ চেপে বলো" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:24px;padding:10px 14px;font-family:inherit;font-size:14px;resize:none;outline:none;max-height:120px"></textarea>
+        <button onclick="send()" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#6c63ff,#48cfad);color:#fff;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center">➤</button>
       </div>
       <p style="text-align:center;color:#333;font-size:11px;margin-top:8px">🎙️ বলো → AI voice এ জবাব দেবে + বাংলা অনুবাদ দেখাবে</p>
     </div>
