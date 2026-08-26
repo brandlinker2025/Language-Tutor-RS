@@ -1,286 +1,232 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Language Tutor RS</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #0f0f13; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); opacity: 0.4; }
-      50% { transform: translateY(-6px); opacity: 1; }
-    }
-    @keyframes pulse-ring {
-      0% { transform: scale(1); opacity: 1; }
-      100% { transform: scale(1.6); opacity: 0; }
-    }
-    @keyframes wave {
-      0%, 100% { height: 6px; }
-      50% { height: 22px; }
-    }
-    textarea::placeholder { color: #555; }
-    .mic-btn { position: relative; }
-    .mic-btn.active::before {
-      content: '';
-      position: absolute;
-      inset: -5px;
-      border-radius: 50%;
-      border: 2px solid #ff4757;
-      animation: pulse-ring 1s ease-out infinite;
-    }
-    .bar { width: 4px; background: #48cfad; border-radius: 2px; animation: wave 0.6s ease-in-out infinite; }
-    .bar:nth-child(2){animation-delay:.1s}
-    .bar:nth-child(3){animation-delay:.2s}
-    .bar:nth-child(4){animation-delay:.3s}
-    .bar:nth-child(5){animation-delay:.4s}
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Language Tutor RS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0f0f13;color:#fff}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+@keyframes bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-6px);opacity:1}}
+@keyframes pulse{0%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+@keyframes wave{0%,100%{height:6px}50%{height:22px}}
+textarea::placeholder{color:#555}
+.bar{width:4px;background:#48cfad;border-radius:2px;animation:wave .6s ease-in-out infinite}
+.bar:nth-child(2){animation-delay:.1s}.bar:nth-child(3){animation-delay:.2s}
+.bar:nth-child(4){animation-delay:.3s}.bar:nth-child(5){animation-delay:.4s}
+.mic-active{position:relative}
+.mic-active::before{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid #ff4757;animation:pulse 1s ease-out infinite}
+.lang-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:14px;padding:14px 8px;font-size:13px;cursor:pointer;font-weight:500;font-family:inherit;transition:background .2s}
+.lang-btn:hover{background:rgba(255,255,255,0.18)}
+.msg-box{max-width:72%;padding:12px 16px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.msg-ai{border-radius:18px 18px 18px 4px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1)}
+.msg-user{border-radius:18px 18px 4px 18px;background:linear-gradient(135deg,#6c63ff,#574fd6)}
+.translation{font-size:12px;color:#aaa;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:8px;border-left:3px solid #48cfad}
+</style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-const LANGUAGES = [
-  { code:"en", label:"English 🇬🇧",    voice:"en-US", sr:"en-US" },
-  { code:"bn", label:"Bengali 🇧🇩",    voice:"bn-BD", sr:"bn-BD" },
-  { code:"it", label:"Italian 🇮🇹",    voice:"it-IT", sr:"it-IT" },
-  { code:"es", label:"Spanish 🇪🇸",    voice:"es-ES", sr:"es-ES" },
-  { code:"de", label:"German 🇩🇪",     voice:"de-DE", sr:"de-DE" },
-  { code:"zh", label:"Chinese 🇨🇳",    voice:"zh-CN", sr:"zh-CN" },
-  { code:"ja", label:"Japanese 🇯🇵",   voice:"ja-JP", sr:"ja-JP" },
-  { code:"pt", label:"Portuguese 🇵🇹", voice:"pt-PT", sr:"pt-PT" },
-  { code:"tr", label:"Turkish 🇹🇷",    voice:"tr-TR", sr:"tr-TR" },
-  { code:"ar", label:"Arabic 🇸🇦",     voice:"ar-SA", sr:"ar-SA" },
-  { code:"hi", label:"Hindi 🇮🇳",      voice:"hi-IN", sr:"hi-IN" },
-  { code:"ne", label:"Nepali 🇳🇵",     voice:"ne-NP", sr:"ne-NP" },
+const LANGS=[
+  {code:"en",label:"English 🇬🇧",voice:"en-US",sr:"en-US"},
+  {code:"bn",label:"Bengali 🇧🇩",voice:"bn-BD",sr:"bn-BD"},
+  {code:"it",label:"Italian 🇮🇹",voice:"it-IT",sr:"it-IT"},
+  {code:"es",label:"Spanish 🇪🇸",voice:"es-ES",sr:"es-ES"},
+  {code:"de",label:"German 🇩🇪",voice:"de-DE",sr:"de-DE"},
+  {code:"zh",label:"Chinese 🇨🇳",voice:"zh-CN",sr:"zh-CN"},
+  {code:"ja",label:"Japanese 🇯🇵",voice:"ja-JP",sr:"ja-JP"},
+  {code:"pt",label:"Portuguese 🇵🇹",voice:"pt-PT",sr:"pt-PT"},
+  {code:"tr",label:"Turkish 🇹🇷",voice:"tr-TR",sr:"tr-TR"},
+  {code:"ar",label:"Arabic 🇸🇦",voice:"ar-SA",sr:"ar-SA"},
+  {code:"hi",label:"Hindi 🇮🇳",voice:"hi-IN",sr:"hi-IN"},
+  {code:"ne",label:"Nepali 🇳🇵",voice:"ne-NP",sr:"ne-NP"},
 ];
+const NAMES={en:"English",bn:"Bengali",it:"Italian",es:"Spanish",de:"German",zh:"Chinese",ja:"Japanese",pt:"Portuguese",tr:"Turkish",ar:"Arabic",hi:"Hindi",ne:"Nepali"};
 
-const NAMES = {en:"English",bn:"Bengali",it:"Italian",es:"Spanish",de:"German",zh:"Chinese",ja:"Japanese",pt:"Portuguese",tr:"Turkish",ar:"Arabic",hi:"Hindi",ne:"Nepali"};
+let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[]};
+let rec=null;
+const syn=window.speechSynthesis;
 
-let state = {
-  screen:"lang", lang:null, msgs:[], loading:false,
-  listening:false, speaking:false, voiceOn:true,
-  transcript:"", history:[]
-};
+async function callAI(userText){
+  const ln=NAMES[S.lang.code];
+  const sys=`You are a friendly ${ln} language tutor. Rules:
+1. Reply in ${ln} (2-3 short sentences max).
+2. After your ${ln} reply, ALWAYS add on a new line: "🇧🇩 বাংলা: [exact Bengali translation of what you just said]"
+3. If student speaks/writes Bengali, respond in ${ln} AND add: "🇧🇩 তোমার কথার ${ln}: [translation of their Bengali into ${ln}]"
+4. Gently correct 1 mistake max — like a friend.
+5. Always end with a simple follow-up question.
+6. Be warm and encouraging.`;
 
-let recognition = null;
-const synth = window.speechSynthesis;
-
-// ── Gemini API — server side proxy ──────────────
-async function callGemini(userText) {
-  const langName = NAMES[state.lang.code];
-  const systemInstruction = `You are a friendly ${langName} language tutor having a spoken conversation.
-Rules:
-1. Reply ONLY in ${langName} — short natural sentences (2-3 max).
-2. Gently correct 1 mistake at a time like a friend.
-3. Always end with a simple follow-up question.
-4. If student writes Bengali, translate to ${langName} and teach them.
-5. Be warm, encouraging, conversational. No bullet points.
-6. Add Bengali hint in [] only when really needed.`;
-
-  state.history.push({ role:"user", parts:[{ text:userText }] });
-
-  const res = await fetch("/api/gemini", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_instruction: { parts:[{ text:systemInstruction }] },
-      contents: state.history,
-      generationConfig: { maxOutputTokens:200, temperature:0.9 }
+  S.history.push({role:"user",parts:[{text:userText}]});
+  const res=await fetch("/api/gemini",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      system_instruction:{parts:[{text:sys}]},
+      contents:S.history,
+      generationConfig:{maxOutputTokens:300,temperature:0.9}
     })
   });
-
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  const reply = data.candidates[0].content.parts[0].text;
-  state.history.push({ role:"model", parts:[{ text:reply }] });
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message);
+  const reply=data.candidates[0].content.parts[0].text;
+  S.history.push({role:"model",parts:[{text:reply}]});
   return reply;
 }
 
-// ── Text to Speech ───────────────────────────────
-function speak(text) {
-  if (!state.voiceOn || !synth) return;
-  synth.cancel();
-  const clean = text.replace(/\[.*?\]/g, "").trim();
-  const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = state.lang.voice;
-
-  const trySpeak = () => {
-    const voices = synth.getVoices();
-    const langCode = state.lang.voice.split("-")[0];
-    const langVoices = voices.filter(v => v.lang.startsWith(langCode));
-    const preferred = ["Google","Microsoft","Apple","Samantha","Karen","Moira","Zira"];
-    let picked = null;
-    for (const brand of preferred) {
-      picked = langVoices.find(v => v.name.includes(brand));
-      if (picked) break;
-    }
-    if (!picked && langVoices.length > 0) picked = langVoices[0];
-    if (picked) utter.voice = picked;
-    utter.rate = 0.88; utter.pitch = 1.05; utter.volume = 1;
-    utter.onstart = () => { state.speaking = true; render(); };
-    utter.onend   = () => { state.speaking = false; render(); };
-    utter.onerror = () => { state.speaking = false; render(); };
-    synth.speak(utter);
+function speak(text){
+  if(!S.voiceOn||!syn) return;
+  syn.cancel();
+  // Only speak the main language part, not the Bengali translation
+  const mainText=text.split("🇧🇩")[0].trim();
+  const u=new SpeechSynthesisUtterance(mainText);
+  u.lang=S.lang.voice;
+  const go=()=>{
+    const voices=syn.getVoices();
+    const lc=S.lang.voice.split("-")[0];
+    const lv=voices.filter(v=>v.lang.startsWith(lc));
+    const brands=["Google","Microsoft","Apple","Samantha","Karen","Zira"];
+    let pick=null;
+    for(const b of brands){pick=lv.find(v=>v.name.includes(b));if(pick)break;}
+    if(!pick&&lv.length>0) pick=lv[0];
+    if(pick) u.voice=pick;
+    u.rate=0.88;u.pitch=1.05;u.volume=1;
+    u.onstart=()=>{S.speaking=true;render()};
+    u.onend=()=>{S.speaking=false;render()};
+    u.onerror=()=>{S.speaking=false;render()};
+    syn.speak(u);
   };
-
-  synth.getVoices().length === 0 ? (synth.onvoiceschanged = trySpeak) : trySpeak();
+  syn.getVoices().length===0?(syn.onvoiceschanged=go):go();
 }
 
-function stopSpeak() { synth.cancel(); state.speaking = false; }
+function stopSpeak(){syn.cancel();S.speaking=false;}
 
-// ── Speech Recognition ───────────────────────────
-function startListening() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert("Chrome browser use করো voice এর জন্য"); return; }
+function startListen(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert("Chrome browser use করো");return;}
   stopSpeak();
-  recognition = new SR();
-  recognition.lang = state.lang.sr;
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.onstart  = () => { state.listening = true; state.transcript = ""; render(); };
-  recognition.onresult = (e) => {
-    const t = Array.from(e.results).map(r => r[0].transcript).join("");
-    state.transcript = t; render();
-    if (e.results[e.results.length-1].isFinal) { state.listening = false; sendMessage(t); }
+  rec=new SR();rec.lang=S.lang.sr;rec.continuous=false;rec.interimResults=true;
+  rec.onstart=()=>{S.listening=true;S.transcript="";render()};
+  rec.onresult=(e)=>{
+    const t=Array.from(e.results).map(r=>r[0].transcript).join("");
+    S.transcript=t;render();
+    if(e.results[e.results.length-1].isFinal){S.listening=false;send(t);}
   };
-  recognition.onend   = () => { state.listening = false; render(); };
-  recognition.onerror = () => { state.listening = false; render(); };
-  recognition.start();
+  rec.onend=()=>{S.listening=false;render()};
+  rec.onerror=()=>{S.listening=false;render()};
+  rec.start();
 }
+function stopListen(){rec&&rec.stop();S.listening=false;render();}
 
-function stopListening() { recognition && recognition.stop(); state.listening = false; render(); }
-
-// ── Send ─────────────────────────────────────────
-async function sendMessage(text) {
-  const msg = text || (document.getElementById("txt")?.value.trim());
-  if (!msg || state.loading) return;
-  if (document.getElementById("txt")) document.getElementById("txt").value = "";
-  state.msgs.push({ role:"user", content:msg });
-  state.transcript = ""; state.loading = true; render();
-  try {
-    const reply = await callGemini(msg);
-    state.msgs.push({ role:"assistant", content:reply });
-    state.loading = false; render(); speak(reply);
-  } catch(e) {
-    state.msgs.push({ role:"assistant", content:"❌ Error: " + e.message });
-    state.loading = false; render();
+async function send(text){
+  const msg=text||(document.getElementById("txt")?.value.trim());
+  if(!msg||S.loading)return;
+  if(document.getElementById("txt"))document.getElementById("txt").value="";
+  S.msgs.push({role:"user",content:msg});
+  S.transcript="";S.loading=true;render();
+  try{
+    const reply=await callAI(msg);
+    S.msgs.push({role:"assistant",content:reply});
+    S.loading=false;render();speak(reply);
+  }catch(e){
+    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message+"\n\nVercel এ GEMINI_API_KEY আছে কিনা check করো।"});
+    S.loading=false;render();
   }
 }
 
-async function startChat(langObj) {
-  state.lang = langObj; state.msgs = []; state.history = [];
-  state.screen = "chat"; state.loading = true; render();
-  try {
-    const reply = await callGemini("Start now. Greet me warmly and ask one simple question.");
-    state.msgs.push({ role:"assistant", content:reply });
-    state.loading = false; render(); speak(reply);
-  } catch(e) {
-    state.msgs.push({ role:"assistant", content:"❌ Error: " + e.message });
-    state.loading = false; render();
+async function startChat(lang){
+  S.lang=lang;S.msgs=[];S.history=[];S.screen="chat";S.loading=true;render();
+  try{
+    const reply=await callAI("Start now. Greet me warmly and ask one simple question.");
+    S.msgs.push({role:"assistant",content:reply});
+    S.loading=false;render();speak(reply);
+  }catch(e){
+    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message});
+    S.loading=false;render();
   }
 }
 
-// ── Render ───────────────────────────────────────
-function render() {
-  const app = document.getElementById("app");
+function formatMsg(content,role){
+  if(role==="assistant"){
+    const parts=content.split(/(🇧🇩[^\n]*)/g);
+    return parts.map(p=>
+      p.startsWith("🇧🇩")
+        ?`<div class="translation">${p}</div>`
+        :`<span>${p}</span>`
+    ).join("");
+  }
+  // User: show Bengali translation hint
+  const hasBengali=/[\u0980-\u09FF]/.test(content);
+  return `<span>${content}</span>`;
+}
 
-  if (state.screen === "lang") {
-    app.innerHTML = `
-      <div style="min-height:100vh;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
-        <div style="text-align:center;margin-bottom:36px">
-          <div style="font-size:52px;margin-bottom:12px">🌍</div>
-          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 8px">Language Tutor RS</h1>
-          <p style="color:#aaa;font-size:14px">কোন ভাষা practice করতে চাও? 🎙️</p>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;max-width:500px;width:100%">
-          ${LANGUAGES.map(l=>`
-            <button onclick='startChat(${JSON.stringify(l)})'
-              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:14px;padding:14px 8px;font-size:13px;cursor:pointer;font-weight:500;font-family:inherit"
-              onmouseover="this.style.background='rgba(255,255,255,0.18)'"
-              onmouseout="this.style.background='rgba(255,255,255,0.07)'"
-            >${l.label}</button>
-          `).join("")}
-        </div>
-        <p style="color:#444;font-size:11px;margin-top:24px">Powered by Google Gemini • সম্পূর্ণ ফ্রি 🎉</p>
-      </div>`;
+function render(){
+  const app=document.getElementById("app");
+  if(S.screen==="lang"){
+    app.innerHTML=`
+    <div style="min-height:100vh;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+      <div style="text-align:center;margin-bottom:36px">
+        <div style="font-size:52px;margin-bottom:12px">🌍</div>
+        <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 8px">Language Tutor RS</h1>
+        <p style="color:#aaa;font-size:14px">কোন ভাষা practice করতে চাও? 🎙️</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;max-width:500px;width:100%">
+        ${LANGS.map(l=>`<button class="lang-btn" onclick='startChat(${JSON.stringify(l)})'>${l.label}</button>`).join("")}
+      </div>
+      <p style="color:#444;font-size:11px;margin-top:24px">Powered by Google Gemini • সম্পূর্ণ ফ্রি 🎉</p>
+    </div>`;
     return;
   }
 
-  const msgsHTML = state.msgs.map((m,i)=>`
+  const wave=S.speaking?`<div style="display:flex;align-items:center;gap:3px;height:24px">${[0,1,2,3,4].map(i=>`<div class="bar" style="animation-delay:${i*.1}s"></div>`).join("")}</div>`:"";
+
+  const msgsHTML=S.msgs.map((m,i)=>`
     <div style="display:flex;justify-content:${m.role==="user"?"flex-end":"flex-start"};align-items:flex-end;gap:8px;margin-bottom:14px">
-      ${m.role==="assistant"?`<button onclick="speakMsg(${i})" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);border:none;font-size:15px;cursor:pointer;flex-shrink:0" title="আবার শোনো">🤖</button>`:""}
-      <div style="max-width:72%;padding:12px 16px;border-radius:${m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px"};background:${m.role==="user"?"linear-gradient(135deg,#6c63ff,#574fd6)":"rgba(255,255,255,0.08)"};color:#fff;font-size:14px;line-height:1.7;border:${m.role==="assistant"?"1px solid rgba(255,255,255,0.1)":"none"};white-space:pre-wrap;word-break:break-word">${m.content}</div>
+      ${m.role==="assistant"?`<button onclick="speak(S.msgs[${i}].content)" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);border:none;font-size:15px;cursor:pointer;flex-shrink:0">🤖</button>`:""}
+      <div class="msg-box ${m.role==="ai"?"msg-ai":"msg-"+m.role==="user"?"msg-user":"msg-ai"}
+           ${m.role==="assistant"?"msg-ai":"msg-user"}">
+        ${formatMsg(m.content,m.role)}
+      </div>
       ${m.role==="user"?`<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">😊</div>`:""}
     </div>`).join("");
 
-  const loadingHTML = state.loading ? `
-    <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:14px">
-      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);display:flex;align-items:center;justify-content:center;font-size:16px">🤖</div>
-      <div style="background:rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;padding:14px 18px;border:1px solid rgba(255,255,255,0.1)">
-        <div style="display:flex;gap:5px">
-          ${[0,1,2].map(i=>`<div style="width:8px;height:8px;border-radius:50%;background:#6c63ff;animation:bounce 1.2s ease-in-out infinite;animation-delay:${i*0.2}s"></div>`).join("")}
-        </div>
+  const dots=`<div style="display:flex;gap:5px">${[0,1,2].map(i=>`<div style="width:8px;height:8px;border-radius:50%;background:#6c63ff;animation:bounce 1.2s ease-in-out infinite;animation-delay:${i*.2}s"></div>`).join("")}</div>`;
+
+  app.innerHTML=`
+  <div style="min-height:100vh;background:#0f0f13;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-weight:700;font-size:15px">🎓 ${NAMES[S.lang.code]} Tutor RS</span>
+        ${wave}
       </div>
-    </div>` : "";
-
-  const transcriptHTML = (state.listening && state.transcript) ? `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <div style="max-width:72%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:rgba(108,99,255,0.25);color:#ccc;font-size:13px;font-style:italic;border:1px dashed rgba(108,99,255,0.5)">🎙️ ${state.transcript}</div>
-    </div>` : "";
-
-  const waveHTML = state.speaking ? `<div style="display:flex;align-items:center;gap:3px;height:24px">${[0,1,2,3,4].map(i=>`<div class="bar" style="animation-delay:${i*0.1}s"></div>`).join("")}</div>` : "";
-
-  app.innerHTML = `
-    <div style="min-height:100vh;background:#0f0f13;display:flex;flex-direction:column">
-      <div style="padding:12px 16px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="color:#fff;font-weight:700;font-size:15px">🎓 ${NAMES[state.lang.code]} Tutor RS</span>
-          ${waveHTML}
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="toggleVoice()" style="background:${state.voiceOn?"rgba(72,207,173,0.15)":"rgba(255,255,255,0.07)"};border:1px solid ${state.voiceOn?"rgba(72,207,173,0.4)":"rgba(255,255,255,0.15)"};color:${state.voiceOn?"#48cfad":"#888"};border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">${state.voiceOn?"🔊 ON":"🔇 OFF"}</button>
-          <button onclick="goBack()" style="background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);color:#ff6b6b;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">← বদলাও</button>
-        </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="S.voiceOn=!S.voiceOn;if(!S.voiceOn)stopSpeak();render()" style="background:${S.voiceOn?"rgba(72,207,173,0.15)":"rgba(255,255,255,0.07)"};border:1px solid ${S.voiceOn?"rgba(72,207,173,0.4)":"rgba(255,255,255,0.15)"};color:${S.voiceOn?"#48cfad":"#888"};border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">${S.voiceOn?"🔊 ON":"🔇 OFF"}</button>
+        <button onclick="stopSpeak();stopListen();S.screen='lang';S.msgs=[];S.history=[];render()" style="background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);color:#ff6b6b;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit">← বদলাও</button>
       </div>
+    </div>
 
-      <div id="msgs-box" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column">
-        ${msgsHTML}${loadingHTML}${transcriptHTML}
-        <div id="bottom"></div>
+    <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column">
+      ${msgsHTML}
+      ${S.loading?`<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);display:flex;align-items:center;justify-content:center">🤖</div><div style="background:rgba(255,255,255,0.08);border-radius:18px 18px 18px 4px;padding:14px 18px;border:1px solid rgba(255,255,255,0.1)">${dots}</div></div>`:""}
+      ${S.listening&&S.transcript?`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:72%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:rgba(108,99,255,0.25);color:#ccc;font-size:13px;font-style:italic;border:1px dashed rgba(108,99,255,0.5)">🎙️ ${S.transcript}</div></div>`:""}
+      <div id="btm"></div>
+    </div>
+
+    ${S.listening?`<div style="text-align:center;padding:8px;background:rgba(255,71,87,0.1);border-top:1px solid rgba(255,71,87,0.2);color:#ff4757;font-size:13px;display:flex;align-items:center;justify-content:center;gap:10px"><div style="width:8px;height:8px;border-radius:50%;background:#ff4757;animation:bounce .8s infinite"></div>শুনছি... বলো<button onclick="stopListen()" style="background:rgba(255,71,87,0.2);border:1px solid rgba(255,71,87,0.4);color:#ff4757;border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;font-family:inherit">বন্ধ</button></div>`:""}
+
+    <div style="padding:12px 14px;background:rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:flex-end;max-width:700px;margin:0 auto">
+        <button onclick="${S.listening?"stopListen()":"startListen()"}" class="mic-btn ${S.listening?"mic-active":""}" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:${S.listening?"#ff4757":"rgba(255,255,255,0.1)"};color:#fff;font-size:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:inherit">${S.listening?"⏹":"🎙️"}</button>
+        <textarea id="txt" rows="1" placeholder="${NAMES[S.lang.code]} বা বাংলায় লেখো... অথবা 🎙️ চেপে বলো" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}" style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.5;max-height:100px"></textarea>
+        <button onclick="send()" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#6c63ff,#48cfad);color:#fff;font-size:18px;flex-shrink:0;font-family:inherit">➤</button>
       </div>
-
-      ${state.listening?`
-        <div style="text-align:center;padding:8px;background:rgba(255,71,87,0.1);border-top:1px solid rgba(255,71,87,0.2);color:#ff4757;font-size:13px;display:flex;align-items:center;justify-content:center;gap:10px">
-          <div style="width:8px;height:8px;border-radius:50%;background:#ff4757;animation:bounce 0.8s infinite"></div>
-          শুনছি... বলো
-          <button onclick="stopListening()" style="background:rgba(255,71,87,0.2);border:1px solid rgba(255,71,87,0.4);color:#ff4757;border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;font-family:inherit">বন্ধ</button>
-        </div>`:""}
-
-      <div style="padding:12px 14px;background:rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0">
-        <div style="display:flex;gap:8px;align-items:flex-end;max-width:700px;margin:0 auto">
-          <button onclick="${state.listening?"stopListening()":"startListening()"}"
-            class="mic-btn ${state.listening?"active":""}"
-            style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:${state.listening?"#ff4757":"rgba(255,255,255,0.1)"};color:#fff;font-size:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:inherit">
-            ${state.listening?"⏹":"🎙️"}
-          </button>
-          <textarea id="txt" rows="1"
-            placeholder="${NAMES[state.lang.code]} বা বাংলায় লেখো... অথবা 🎙️ চেপে বলো"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
-            style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:14px;padding:12px 14px;font-size:14px;resize:none;outline:none;font-family:inherit;line-height:1.5;max-height:100px"></textarea>
-          <button onclick="sendMessage()" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#6c63ff,#48cfad);color:#fff;font-size:18px;flex-shrink:0;font-family:inherit">➤</button>
-        </div>
-        <p style="text-align:center;color:#333;font-size:11px;margin-top:8px">🎙️ চাপো → বলো → AI voice এ জবাব দেবে • 🤖 চাপলে আবার শোনা যাবে</p>
-      </div>
-    </div>`;
-
-  document.getElementById("bottom")?.scrollIntoView({ behavior:"smooth" });
+      <p style="text-align:center;color:#333;font-size:11px;margin-top:8px">🎙️ বলো → AI voice এ জবাব দেবে + বাংলা অনুবাদ দেখাবে</p>
+    </div>
+  </div>`;
+  document.getElementById("btm")?.scrollIntoView({behavior:"smooth"});
 }
-
-function speakMsg(i) { speak(state.msgs[i].content); }
-function toggleVoice() { state.voiceOn = !state.voiceOn; if(!state.voiceOn) stopSpeak(); render(); }
-function goBack() { stopSpeak(); stopListening(); state.screen="lang"; state.msgs=[]; state.history=[]; render(); }
 
 render();
 </script>
