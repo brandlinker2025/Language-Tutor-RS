@@ -133,75 +133,75 @@ export default async function handler(req, res) {
       }
 
       if (!data) {
-        // Non-JSON response or empty body
-        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
-        return { status: response.status, ok: response.ok, data: null, text: '', errorText: parseErrorText || '' };
+        const isEmpty = true;
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', Boolean(isEmpty));
+        const errorText = parseErrorText || (!response.ok ? `OpenRouter HTTP ${response.status}` : '');
+        return {
+          status: response.status,
+          ok: response.ok,
+          data: null,
+          text: '',
+          errorText,
+          error: response.ok ? undefined : { message: errorText || 'OpenRouter API error' }
+        };
       }
 
-      // If OpenRouter returned structured error in body
+      // Structured OpenRouter error: treat as a genuine API error, not empty content
       if (data && data.error) {
-        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
-        return { status: response.status, ok: response.ok, data, text: '', error: data.error };
+        const isEmpty = true;
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', Boolean(isEmpty));
+        return { status: response.status, ok: false, data, text: '', error: data.error };
       }
 
-      // Extract text safely
       const choices = data?.choices;
       if (!choices || !Array.isArray(choices) || choices.length === 0) {
-        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
+        const isEmpty = true;
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', Boolean(isEmpty));
         return { status: response.status, ok: response.ok, data, text: '', contentEmpty: true };
       }
 
       const content = choices[0].message?.content;
       const extracted = extractTextFromContent(content);
-      const empty = !extracted;
-      console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', empty);
-      return { status: response.status, ok: response.ok, data, text: extracted, contentEmpty: empty };
+      const isEmpty = !extracted;
+      console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', Boolean(isEmpty));
+      return { status: response.status, ok: response.ok, data, text: extracted, contentEmpty: isEmpty };
     } catch (e) {
-      // Network or unexpected error
-      console.log('openrouter model=', model, 'status=network-error', 'contentEmpty=', true);
+      const isEmpty = true;
+      console.log('openrouter model=', model, 'status=network-error', 'contentEmpty=', Boolean(isEmpty));
       return { status: 500, ok: false, data: null, text: '', error: e };
     }
   }
 
+  function sendOpenRouterHttpError(result) {
+    const status = result.status || 500;
+    let message = result.error?.message || result.data?.error?.message || result.errorText || 'OpenRouter API error';
+    if (typeof message !== 'string') message = String(message);
+    return res.status(status).json({ error: { message } });
+  }
+
   try {
-    // Primary attempt with free model
-    const primaryModel = 'openrouter/free';
-    const primary = await callOpenRouterOnce(primaryModel);
+    const model = 'openrouter/free';
+    const primary = await callOpenRouterOnce(model);
 
-    // If primary returned a non-OK HTTP status with structured error, forward it
-    if (!primary.ok && primary.data && primary.data.error) {
-      return res.status(primary.status || 400).json({ error: { message: primary.data.error.message || 'OpenRouter API error' } });
-    }
-    if (!primary.ok && primary.error) {
-      // Could be non-JSON structured error or network error
-      const msg = primary.error?.message || primary.error?.toString() || 'OpenRouter API error';
-      return res.status(primary.status || 500).json({ error: { message: msg } });
+    if (!primary.ok) {
+      return sendOpenRouterHttpError(primary);
     }
 
-    // If primary returned text, respond
     if (primary.text) {
       return res.status(200).json({ candidates: [{ content: { parts: [{ text: primary.text }] } }] });
     }
 
-    // Otherwise primary had empty content: retry once with fallback model
-    const fallbackModel = 'openai/gpt-oss-20b:free';
-    const fallback = await callOpenRouterOnce(fallbackModel);
+    // HTTP 2xx with empty/whitespace content: retry once with the same free model
+    const retry = await callOpenRouterOnce(model);
 
-    // If fallback returned a non-OK HTTP status with structured error, forward it
-    if (!fallback.ok && fallback.data && fallback.data.error) {
-      return res.status(fallback.status || 400).json({ error: { message: fallback.data.error.message || 'OpenRouter API error' } });
-    }
-    if (!fallback.ok && fallback.error) {
-      const msg = fallback.error?.message || fallback.error?.toString() || 'OpenRouter API error';
-      return res.status(fallback.status || 500).json({ error: { message: msg } });
+    if (!retry.ok) {
+      return sendOpenRouterHttpError(retry);
     }
 
-    // If fallback returned text, respond
-    if (fallback.text) {
-      return res.status(200).json({ candidates: [{ content: { parts: [{ text: fallback.text }] } }] });
+    if (retry.text) {
+      return res.status(200).json({ candidates: [{ content: { parts: [{ text: retry.text }] } }] });
     }
 
-    // Both primary and fallback returned empty content
     return res.status(502).json({ error: { message: 'AI model returned no text. Please try again.' } });
   } catch (e) {
     res.status(500).json({ error: { message: 'Server error: ' + e.message } });
