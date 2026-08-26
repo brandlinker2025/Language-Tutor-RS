@@ -61,53 +61,150 @@ export default async function handler(req, res) {
     });
   }
 
+  // Helper: safely extract text from OpenRouter message content
+  function extractTextFromContent(content) {
+    if (!content && content !== "") return '';
+    // If string
+    if (typeof content === 'string') {
+      const t = content.trim();
+      return t.length > 0 ? t : '';
+    }
+    // If array (join text parts)
+    if (Array.isArray(content)) {
+      const parts = [];
+      for (const el of content) {
+        if (!el) continue;
+        if (typeof el === 'string') {
+          const tt = el.trim();
+          if (tt) parts.push(tt);
+        } else if (typeof el.text === 'string') {
+          const tt = el.text.trim();
+          if (tt) parts.push(tt);
+        }
+      }
+      const joined = parts.join('');
+      return joined.trim().length > 0 ? joined : '';
+    }
+    // If object with parts array
+    if (typeof content === 'object' && content.parts && Array.isArray(content.parts)) {
+      const parts = [];
+      for (const p of content.parts) {
+        if (!p) continue;
+        if (typeof p === 'string') {
+          const tt = p.trim(); if (tt) parts.push(tt);
+        } else if (typeof p.text === 'string') {
+          const tt = p.text.trim(); if (tt) parts.push(tt);
+        }
+      }
+      const joined = parts.join('');
+      return joined.trim().length > 0 ? joined : '';
+    }
+    return '';
+  }
+
+  // Helper: perform one OpenRouter request and return parsed info
+  async function callOpenRouterOnce(model) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://language-tutor-rs.vercel.app',
+          'X-Title': 'Language Tutor RS'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          max_tokens: generationConfig?.maxOutputTokens || 300,
+          temperature: generationConfig?.temperature || 0.9
+        })
+      });
+
+      // Read body once as text, then attempt to parse JSON
+      const raw = await response.text().catch(() => '');
+      let data = null;
+      let parseErrorText = '';
+      if (raw && raw.length > 0) {
+        try {
+          data = JSON.parse(raw);
+        } catch (e) {
+          parseErrorText = raw;
+        }
+      }
+
+      if (!data) {
+        // Non-JSON response or empty body
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
+        return { status: response.status, ok: response.ok, data: null, text: '', errorText: parseErrorText || '' };
+      }
+
+      // If OpenRouter returned structured error in body
+      if (data && data.error) {
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
+        return { status: response.status, ok: response.ok, data, text: '', error: data.error };
+      }
+
+      // Extract text safely
+      const choices = data?.choices;
+      if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
+        return { status: response.status, ok: response.ok, data, text: '', contentEmpty: true };
+      }
+
+      const content = choices[0].message?.content;
+      const extracted = extractTextFromContent(content);
+      const empty = !extracted;
+      console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', empty);
+      return { status: response.status, ok: response.ok, data, text: extracted, contentEmpty: empty };
+    } catch (e) {
+      // Network or unexpected error
+      console.log('openrouter model=', model, 'status=network-error', 'contentEmpty=', true);
+      return { status: 500, ok: false, data: null, text: '', error: e };
+    }
+  }
+
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://language-tutor-rs.vercel.app',
-        'X-Title': 'Language Tutor RS'
-      },
-      body: JSON.stringify({
-        model: 'openrouter/free',
-        messages: messages,
-        max_tokens: generationConfig?.maxOutputTokens || 300,
-        temperature: generationConfig?.temperature || 0.9
-      })
-    });
+    // Primary attempt with free model
+    const primaryModel = 'openrouter/free';
+    const primary = await callOpenRouterOnce(primaryModel);
 
-    const data = await response.json();
-
-    // Return OpenRouter error with actual status code
-    if (data.error) {
-      return res.status(response.status || 400).json({
-        error: { message: data.error.message || 'OpenRouter API error' }
-      });
+    // If primary returned a non-OK HTTP status with structured error, forward it
+    if (!primary.ok && primary.data && primary.data.error) {
+      return res.status(primary.status || 400).json({ error: { message: primary.data.error.message || 'OpenRouter API error' } });
+    }
+    if (!primary.ok && primary.error) {
+      // Could be non-JSON structured error or network error
+      const msg = primary.error?.message || primary.error?.toString() || 'OpenRouter API error';
+      return res.status(primary.status || 500).json({ error: { message: msg } });
     }
 
-    // Safely handle missing content
-    if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-      return res.status(500).json({
-        error: { message: 'OpenRouter returned empty response' }
-      });
+    // If primary returned text, respond
+    if (primary.text) {
+      return res.status(200).json({ candidates: [{ content: { parts: [{ text: primary.text }] } }] });
     }
 
-    const messageContent = data.choices[0].message?.content;
-    if (!messageContent) {
-      return res.status(500).json({
-        error: { message: 'OpenRouter response missing content' }
-      });
+    // Otherwise primary had empty content: retry once with fallback model
+    const fallbackModel = 'openai/gpt-oss-20b:free';
+    const fallback = await callOpenRouterOnce(fallbackModel);
+
+    // If fallback returned a non-OK HTTP status with structured error, forward it
+    if (!fallback.ok && fallback.data && fallback.data.error) {
+      return res.status(fallback.status || 400).json({ error: { message: fallback.data.error.message || 'OpenRouter API error' } });
+    }
+    if (!fallback.ok && fallback.error) {
+      const msg = fallback.error?.message || fallback.error?.toString() || 'OpenRouter API error';
+      return res.status(fallback.status || 500).json({ error: { message: msg } });
     }
 
-    // Convert back to Gemini response format
-    res.status(200).json({
-      candidates: [{ content: { parts: [{ text: messageContent }] } }]
-    });
+    // If fallback returned text, respond
+    if (fallback.text) {
+      return res.status(200).json({ candidates: [{ content: { parts: [{ text: fallback.text }] } }] });
+    }
+
+    // Both primary and fallback returned empty content
+    return res.status(502).json({ error: { message: 'AI model returned no text. Please try again.' } });
   } catch (e) {
-    res.status(500).json({
-      error: { message: 'Server error: ' + e.message }
-    });
+    res.status(500).json({ error: { message: 'Server error: ' + e.message } });
   }
 }
