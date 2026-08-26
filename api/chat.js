@@ -121,14 +121,22 @@ export default async function handler(req, res) {
         })
       });
 
+      // Read body once as text, then attempt to parse JSON
+      const raw = await response.text().catch(() => '');
       let data = null;
-      try {
-        data = await response.json();
-      } catch (e) {
-        // Non-JSON response
-        const text = await response.text().catch(() => '');
+      let parseErrorText = '';
+      if (raw && raw.length > 0) {
+        try {
+          data = JSON.parse(raw);
+        } catch (e) {
+          parseErrorText = raw;
+        }
+      }
+
+      if (!data) {
+        // Non-JSON response or empty body
         console.log('openrouter model=', model, 'status=', response.status, 'contentEmpty=', true);
-        return { status: response.status, ok: response.ok, data: null, text: '', errorText: text };
+        return { status: response.status, ok: response.ok, data: null, text: '', errorText: parseErrorText || '' };
       }
 
       // If OpenRouter returned structured error in body
