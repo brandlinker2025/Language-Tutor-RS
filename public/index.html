@@ -45,7 +45,8 @@ const LANGS=[
 ];
 const NAMES={en:"English",bn:"Bengali",it:"Italian",es:"Spanish",de:"German",zh:"Chinese",ja:"Japanese",pt:"Portuguese",tr:"Turkish",ar:"Arabic",hi:"Hindi",ne:"Nepali"};
 
-let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[]};
+const SILENCE_TIMEOUT = 5000;
+let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[],accumTranscript:"",silenceTimer:null,userStoppedListening:false};
 let rec=null;
 const syn=window.speechSynthesis;
 
@@ -103,24 +104,74 @@ function speak(text){
 
 function stopSpeak(){syn.cancel();S.speaking=false;}
 
+function onSilenceTimeout(){
+  S.silenceTimer=null;
+  if(S.userStoppedListening)return;
+  const capturedText=(S.transcript||S.accumTranscript||"").trim();
+  if(rec){try{rec.stop();}catch(err){}rec=null;}
+  S.accumTranscript="";
+  S.transcript="";
+  S.listening=false;
+  render();
+  if(capturedText) send(capturedText);
+}
+
 function startListen(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){alert("Chrome browser use করো");return;}
   stopSpeak();
-  rec=new SR();rec.lang=S.lang.sr;rec.continuous=false;rec.interimResults=true;
-  rec.onstart=()=>{S.listening=true;S.transcript="";render()};
+  if(S.silenceTimer){clearTimeout(S.silenceTimer);S.silenceTimer=null;}
+  if(rec){try{rec.stop();}catch(err){}rec=null;}
+  S.userStoppedListening=false;
+  S.accumTranscript="";
+  S.transcript="";
+  rec=new SR();
+  rec.lang=S.lang.sr;
+  rec.continuous=true;
+  rec.interimResults=true;
+  rec.onstart=()=>{S.listening=true;render()};
   rec.onresult=(e)=>{
-    const t=Array.from(e.results).map(r=>r[0].transcript).join("");
-    S.transcript=t;render();
-    if(e.results[e.results.length-1].isFinal){S.listening=false;send(t)};
+    if(S.userStoppedListening)return;
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const piece=e.results[i][0].transcript;
+      if(e.results[i].isFinal){
+        S.accumTranscript+=piece;
+      }else{
+        interim+=piece;
+      }
+    }
+    S.transcript=S.accumTranscript+interim;
+    render();
+    if(S.silenceTimer)clearTimeout(S.silenceTimer);
+    S.silenceTimer=setTimeout(onSilenceTimeout,SILENCE_TIMEOUT);
   };
-  rec.onend=()=>{S.listening=false;render()};
+  rec.onend=()=>{
+    rec=null;
+    if(!S.silenceTimer){
+      S.listening=false;
+      render();
+    }
+  };
   rec.onerror=()=>{S.listening=false;render()};
   rec.start();
 }
-function stopListen(){rec&&rec.stop();S.listening=false;render();}
+function stopListen(){
+  S.userStoppedListening=true;
+  if(S.silenceTimer){clearTimeout(S.silenceTimer);S.silenceTimer=null;}
+  if(rec){try{rec.stop();}catch(err){}rec=null;}
+  S.listening=false;
+  S.accumTranscript="";
+  S.transcript="";
+  render();
+}
 
 async function send(text){
+  S.userStoppedListening=true;
+  if(S.silenceTimer){clearTimeout(S.silenceTimer);S.silenceTimer=null;}
+  if(rec){try{rec.stop();}catch(err){}rec=null;}
+  S.listening=false;
+  S.accumTranscript="";
   const msg=text||(document.getElementById("txt")?.value.trim());
   if(!msg||S.loading)return;
   if(document.getElementById("txt"))document.getElementById("txt").value="";
