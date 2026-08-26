@@ -29,39 +29,35 @@ textarea::placeholder{color:#555}
 <body>
 <div id="app"></div>
 <script>
-const SILENCE_TIMEOUT = 5000; // 5 seconds of continuous silence before sending
 const LANGS=[
-  {code:"en",label:"English 🇬🇧",voice:"en-US",sr:"en-US",greeting:"I am your English Teacher RS. How are you?"},
-  {code:"bn",label:"Bengali 🇧🇩",voice:"bn-BD",sr:"bn-BD",greeting:"আমি আপনার বাংলা শিক্ষক RS। আপনি কেমন আছেন?"},
-  {code:"it",label:"Italian 🇮🇹",voice:"it-IT",sr:"it-IT",greeting:"Sono il tuo insegnante di italiano RS. Come stai?"},
-  {code:"es",label:"Spanish 🇪🇸",voice:"es-ES",sr:"es-ES",greeting:"Soy tu profesor de español RS. ¿Cómo estás?"},
-  {code:"de",label:"German 🇩🇪",voice:"de-DE",sr:"de-DE",greeting:"Ich bin dein Deutschlehrer RS. Wie geht es dir?"},
-  {code:"zh",label:"Chinese 🇨🇳",voice:"zh-CN",sr:"zh-CN",greeting:"我是你的中文老师 RS。你好吗？"},
-  {code:"ja",label:"Japanese 🇯🇵",voice:"ja-JP",sr:"ja-JP",greeting:"私はあなたの日本語教師 RS です。お元気ですか？"},
-  {code:"pt",label:"Portuguese 🇵🇹",voice:"pt-PT",sr:"pt-PT",greeting:"Sou seu professor de português RS. Como você está?"},
-  {code:"tr",label:"Turkish 🇹🇷",voice:"tr-TR",sr:"tr-TR",greeting:"Ben sizin Türkçe öğretmeniniz RS. Nasılsınız?"},
-  {code:"ar",label:"Arabic 🇸🇦",voice:"ar-SA",sr:"ar-SA",greeting:"أنا مدرس اللغة العربية الخاص بك RS. كيف حالك؟"},
-  {code:"hi",label:"Hindi 🇮🇳",voice:"hi-IN",sr:"hi-IN",greeting:"मैं आपका हिंदी शिक्षक RS हूँ। आप कैसे हैं?"},
-  {code:"ne",label:"Nepali 🇳🇵",voice:"ne-NP",sr:"ne-NP",greeting:"म म तपाईंको नेपाली शिक्षक RS हुँ। तपाईंलाई कस्तो छ?"},
+  {code:"en",label:"English 🇬🇧",voice:"en-US",sr:"en-US"},
+  {code:"bn",label:"Bengali 🇧🇩",voice:"bn-BD",sr:"bn-BD"},
+  {code:"it",label:"Italian 🇮🇹",voice:"it-IT",sr:"it-IT"},
+  {code:"es",label:"Spanish 🇪🇸",voice:"es-ES",sr:"es-ES"},
+  {code:"de",label:"German 🇩🇪",voice:"de-DE",sr:"de-DE"},
+  {code:"zh",label:"Chinese 🇨🇳",voice:"zh-CN",sr:"zh-CN"},
+  {code:"ja",label:"Japanese 🇯🇵",voice:"ja-JP",sr:"ja-JP"},
+  {code:"pt",label:"Portuguese 🇵🇹",voice:"pt-PT",sr:"pt-PT"},
+  {code:"tr",label:"Turkish 🇹🇷",voice:"tr-TR",sr:"tr-TR"},
+  {code:"ar",label:"Arabic 🇸🇦",voice:"ar-SA",sr:"ar-SA"},
+  {code:"hi",label:"Hindi 🇮🇳",voice:"hi-IN",sr:"hi-IN"},
+  {code:"ne",label:"Nepali 🇳🇵",voice:"ne-NP",sr:"ne-NP"},
 ];
 const NAMES={en:"English",bn:"Bengali",it:"Italian",es:"Spanish",de:"German",zh:"Chinese",ja:"Japanese",pt:"Portuguese",tr:"Turkish",ar:"Arabic",hi:"Hindi",ne:"Nepali"};
 
-let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[],accumTranscript:"",silenceTimer:null,wasListeningBeforeSpeak:false,userStoppedListening:false,recAutoRestartCount:0,recAutoRestartWindowStart:0};
+let S={screen:"lang",lang:null,msgs:[],loading:false,listening:false,speaking:false,voiceOn:true,transcript:"",history:[]};
 let rec=null;
 const syn=window.speechSynthesis;
 
 async function callAI(userText){
   const ln=NAMES[S.lang.code];
   const sys=`You are a friendly ${ln} language tutor. Rules:
-1. Never output internal reasoning, moderation labels, safety classifications, policy labels, system messages, or metadata.
-2. Never output phrases such as "User Safety", "Safety:", "Policy", "Analysis", "System", "Assistant", "Model", or similar internal labels.
-3. Only output the natural tutor reply intended for the learner — do not include any tags, labels, or system-level text.
-4. Reply in ${ln} (2-3 short sentences max).
-5. After your ${ln} reply, ALWAYS add on a new line: "🇧🇩 বাংলা: [exact Bengali translation of what you just said]"
-6. If student speaks/writes Bengali, respond in ${ln} AND add: "🇧🇩 তোমার কথার ${ln}: [translation of their Bengali into ${ln}]"
-7. Gently correct 1 mistake max — like a friend.
-8. Always end with a simple follow-up question.
-9. Be warm and encouraging.`;
+1. Reply in ${ln} (2-3 short sentences max).
+2. After your ${ln} reply, ALWAYS add on a new line: "🇧🇩 বাংলা: [exact Bengali translation of what you just said]"
+3. If student speaks/writes Bengali, respond in ${ln} AND add: "🇧🇩 তোমার কথার ${ln}: [translation of their Bengali into ${ln}]"
+4. Gently correct 1 mistake max — like a friend.
+5. Always end with a simple follow-up question.
+6. Be warm and encouraging.`;
 
   S.history.push({role:"user",parts:[{text:userText}]});
   const res=await fetch("/api/gemini",{
@@ -90,22 +86,16 @@ function speak(text){
   const go=()=>{
     const voices=syn.getVoices();
     const lc=S.lang.voice.split("-")[0];
-    const lv=voices.filter(v=>v.lang && v.lang.toLowerCase().startsWith(lc));
-    // Improved priority list
-    const priorities=["natural","neural","premium","enhanced","google","microsoft","apple","samantha","karen","zira"];
+    const lv=voices.filter(v=>v.lang.startsWith(lc));
+    const brands=["Google","Microsoft","Apple","Samantha","Karen","Zira"];
     let pick=null;
-    for(const p of priorities){ pick = lv.find(v=>v.name && v.name.toLowerCase().includes(p)); if(pick) break; }
-    if(!pick && lv.length>0) pick=lv[0];
+    for(const b of brands){pick=lv.find(v=>v.name.includes(b));if(pick)break;}
+    if(!pick&&lv.length>0) pick=lv[0];
     if(pick) u.voice=pick;
-    // More natural voice settings per request
-    u.rate=0.95; u.pitch=1.0; u.volume=1;
-    u.onstart=()=>{
-      // Prevent capturing AI voice: stop recognition if active
-      if(S.listening){S.wasListeningBeforeSpeak=true; stopListen();}
-      S.speaking=true; render();
-    };
-    u.onend=()=>{S.speaking=false; render(); if(S.wasListeningBeforeSpeak){S.wasListeningBeforeSpeak=false; startListen();}};
-    u.onerror=()=>{S.speaking=false; render(); if(S.wasListeningBeforeSpeak){S.wasListeningBeforeSpeak=false; startListen();}};
+    u.rate=0.88;u.pitch=1.05;u.volume=1;
+    u.onstart=()=>{S.speaking=true;render()};
+    u.onend=()=>{S.speaking=false;render()};
+    u.onerror=()=>{S.speaking=false;render()};
     syn.speak(u);
   };
   syn.getVoices().length===0?(syn.onvoiceschanged=go):go();
@@ -117,75 +107,128 @@ function startListen(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){alert("Chrome browser use করো");return;}
   stopSpeak();
-  // initialize accumulators
-  S.accumTranscript = S.accumTranscript || "";
-  S.userStoppedListening = false;
-  // reset auto-restart window if needed
-  const now=Date.now();
-  if(!S.recAutoRestartWindowStart || now - S.recAutoRestartWindowStart > 30000){ S.recAutoRestartWindowStart = now; S.recAutoRestartCount = 0; }
-  if(rec) try{rec.stop();}catch(e){}
-  rec=new SR();
-  rec.lang=S.lang.sr;
-  rec.continuous=true; // keep listening to accumulate full speech
-  rec.interimResults=true;
-
-  rec.onstart=()=>{S.listening=true;render()};
-
+  rec=new SR();rec.lang=S.lang.sr;rec.continuous=false;rec.interimResults=true;
+  rec.onstart=()=>{S.listening=true;S.transcript="";render()};
   rec.onresult=(e)=>{
-    // Only process new results since last event
-    const startIndex = e.resultIndex || 0;
-    // Any speech event resets the silence timer
-    if(S.silenceTimer){clearTimeout(S.silenceTimer);S.silenceTimer=null;}
-
-    const results = e.results;
-    const interimParts = [];
-    for(let i=startIndex;i<results.length;i++){
-      const r = results[i];
-      if(r.isFinal){
-        // Append only once: use accumTranscript to store finalized text
-        S.accumTranscript += r[0].transcript + ' ';
-      } else {
-        interimParts.push(r[0].transcript);
-      }
-    }
-    S.transcript = (S.accumTranscript + interimParts.join(' ')).trim();
-    render();
-
-    // Start/reset silence timer: when no new onresult fires for SILENCE_TIMEOUT, send full transcript
-    S.silenceTimer = setTimeout(async ()=>{
-      S.silenceTimer = null;
-      // Stop recognition before sending to avoid capturing AI voice
-      stopListen();
-      const textToSend = (S.accumTranscript + '').trim();
-      // Clear accum before sending to avoid duplicates
-      S.accumTranscript = "";
-      S.transcript = "";
-      render();
-      if(textToSend){
-        await send(textToSend);
-      }
-    }, SILENCE_TIMEOUT);
+    const t=Array.from(e.results).map(r=>r[0].transcript).join("");
+    S.transcript=t;render();
+    if(e.results[e.results.length-1].isFinal){S.listening=false;send(t)};
   };
+  rec.onend=()=>{S.listening=false;render()};
+  rec.onerror=()=>{S.listening=false;render()};
+  rec.start();
+}
+function stopListen(){rec&&rec.stop();S.listening=false;render();}
 
-  rec.onend=()=>{
-    // Auto-restart logic: if the user didn't manually stop, AI isn't speaking, we are still expecting silence timer to expire (listening turn active), and not currently sending/loading
-    const now = Date.now();
-    const withinWindow = now - S.recAutoRestartWindowStart <= 30000;
-    const shouldRestart = !S.userStoppedListening && !S.speaking && !S.loading && S.silenceTimer && withinWindow && S.recAutoRestartCount < 3;
-    // clear reference to ended recognizer so startListen can create a fresh one
-    rec = null;
-    if(shouldRestart){
-      S.recAutoRestartCount += 1;
-      setTimeout(()=>{ try{ startListen(); }catch(e){} }, 300);
-    } else {
-      S.listening=false; render();
-    }
-  };
-  rec.onerror=(err)=>{console.warn('Speech recognition error',err);S.listening=false;render();};
-  try{rec.start();}catch(e){console.warn('rec.start error',e);}  
+async function send(text){
+  const msg=text||(document.getElementById("txt")?.value.trim());
+  if(!msg||S.loading)return;
+  if(document.getElementById("txt"))document.getElementById("txt").value="";
+  S.msgs.push({role:"user",content:msg});
+  S.transcript="";S.loading=true;render();
+  try{
+    const reply=await callAI(msg);
+    S.msgs.push({role:"assistant",content:reply});
+    S.loading=false;render();speak(reply);
+  }catch(e){
+    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message+"\n\nVercel এ OPENROUTER_KEY আছে কিনা check করো।"});
+    S.loading=false;render();
+  }
 }
 
-function stopListen(){
-  // Mark as user-stopped to prevent auto-restart
-  S.userStoppedListening = true;
-  if(rec){try{rec.onresult=null;rec.onend=null;rec.onerro[...]
+async function startChat(lang){
+  S.lang=lang;S.msgs=[];S.history=[];S.screen="chat";S.loading=true;render();
+  try{
+    const reply=await callAI("Start now. Greet me warmly and ask one simple question.");
+    S.msgs.push({role:"assistant",content:reply});
+    S.loading=false;render();speak(reply);
+  }catch(e){
+    S.msgs.push({role:"assistant",content:"❌ Error: "+e.message});
+    S.loading=false;render();
+  }
+}
+
+function formatMsg(content,role){
+  if(role==="assistant"){
+    const parts=content.split(/(🇧🇩[^\n]*)/g);
+    return parts.map(p=>
+      p.startsWith("🇧🇩")
+        ?`<div class="translation">${p}</div>`
+        :`<span>${p}</span>`
+    ).join("");
+  }
+  // User: show Bengali translation hint
+  const hasBengali=/[\u0980-\u09FF]/.test(content);
+  return `<span>${content}</span>`;
+}
+
+function render(){
+  const app=document.getElementById("app");
+  if(S.screen==="lang"){
+    app.innerHTML=`
+    <div style="min-height:100vh;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+      <div style="text-align:center;margin-bottom:36px">
+        <div style="font-size:52px;margin-bottom:12px">🌍</div>
+        <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0 0 8px">Language Tutor RS</h1>
+        <p style="color:#aaa;font-size:14px">কোন ভাষা practice করতে চাও? 🎙️</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;max-width:500px;width:100%">
+        ${LANGS.map(l=>`<button class="lang-btn" onclick='startChat(${JSON.stringify(l)})'>${l.label}</button>`).join("")}
+      </div>
+      <p style="color:#444;font-size:11px;margin-top:24px">Powered by OpenRouter • সম্পূর্ণ ফ্রি 🎉</p>
+    </div>`;
+    return;
+  }
+
+  const wave=S.speaking?`<div style="display:flex;align-items:center;gap:3px;height:24px">${[0,1,2,3,4].map(i=>`<div class="bar" style="animation-delay:${i*.1}s"></div>`).join("")}</div>`:"";
+
+  const msgsHTML=S.msgs.map((m,i)=>`
+    <div style="display:flex;justify-content:${m.role==="user"?"flex-end":"flex-start"};align-items:flex-end;gap:8px;margin-bottom:14px">
+      ${m.role==="assistant"?`<button onclick="speak(S.msgs[${i}].content)" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad);border:none;font-size:13px;color:#fff">🔊</button>`:""}
+      <div class="msg-box ${m.role==="ai"?"msg-ai":"msg-"+m.role==="user"?"msg-user":"msg-ai"}
+           ${m.role==="assistant"?"msg-ai":"msg-user"}">
+        ${formatMsg(m.content,m.role)}
+      </div>
+      ${m.role==="user"?`<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#f7971e,#ffd200);display:flex;align-items:center;justify-content:center;font-size:14px">🙂</div>`:""}
+    </div>`).join("");
+
+  const dots=`<div style="display:flex;gap:5px">${[0,1,2].map(i=>`<div style="width:8px;height:8px;border-radius:50%;background:#6c63ff;animation:bounce 1.2s ease-in-out infinite;animation-delay:${i*.1}s"></div>`).join("")}</div>`;
+
+  app.innerHTML=`
+  <div style="min-height:100vh;background:#0f0f13;display:flex;flex-direction:column">
+    <div style="padding:12px 16px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-weight:700;font-size:15px">🎓 ${NAMES[S.lang.code]} Tutor RS</span>
+        ${wave}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="S.voiceOn=!S.voiceOn;if(!S.voiceOn)stopSpeak();render()" style="background:${S.voiceOn?"rgba(72,207,173,0.15)":"rgba(255,255,255,0.07)"};border:1px solid ${S.voiceOn?"rgb(72,207,173)":"rgba(255,255,255,0.12)"};padding:8px;border-radius:8px">🔊</button>
+        <button onclick="stopSpeak();stopListen();S.screen='lang';S.msgs=[];S.history=[];render()" style="background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.3);color:#ff6b6b;border-radius:8px;padding:8px">Exit</button>
+      </div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column">
+      ${msgsHTML}
+      ${S.loading?`<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6c63ff,#48cfad)"></div><div class="msg-box msg-ai">${dots}</div></div>`:""}
+      ${S.listening&&S.transcript?`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="max-width:72%;padding:10px 14px;border-radius:18px 18px 4px 18px;background:linear-gradient(135deg,#f7971e,#ffd200);color:#111">${S.transcript}</div></div>`:""}
+      <div id="btm"></div>
+    </div>
+
+    ${S.listening?`<div style="text-align:center;padding:8px;background:rgba(255,71,87,0.1);border-top:1px solid rgba(255,71,87,0.2);color:#ff4757;font-size:13px;display:flex;align-items:center;justify-content:center">Listening...</div>`:""}
+
+    <div style="padding:12px 14px;background:rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+      <div style="display:flex;gap:8px;align-items:flex-end;max-width:700px;margin:0 auto">
+        <button onclick="${S.listening?"stopListen()":"startListen()"}" class="mic-btn ${S.listening?"mic-active":""}" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#ff6b6b,#ff4757);color:#fff">🎙️</button>
+        <textarea id="txt" rows="1" placeholder="${NAMES[S.lang.code]} বা বাংলায় লেখো... অথবা 🎙️ চেপে বলো" onkeydown="if(event.key==='Enter'&& !event.shiftKey){event.preventDefault();send();}" style="flex:1;border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit"></textarea>
+        <button onclick="send()" style="width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#6c63ff,#48cfad);color:#fff;font-size:18px">➤</button>
+      </div>
+      <p style="text-align:center;color:#333;font-size:11px;margin-top:8px">🎙️ বলো → AI voice এ জবাব দেবে + বাংলা অনুবাদ দেখাবে</p>
+    </div>
+  </div>`;
+  document.getElementById("btm")?.scrollIntoView({behavior:"smooth"});
+}
+
+render();
+</script>
+</body>
+</html>
